@@ -148,8 +148,79 @@ Clusters: unsupervised
 When using clusters, species is not known before, but it uses data to group species into clusters
 
 
+## World Bank data: read in and simplify
+
 
 ```{r}
+wb_env <- read_csv(here("data", "wb_env.csv"))
 
+wb_ghg_20 <- wb_env %>% 
+  slice_max(n = 20, ghg)
+
+
+wb_scaled <- wb_ghg_20 %>% 
+  select(where(is.numeric)) %>% 
+  scale()
+
+# since we can't have categorical data in the clustering, making the country the row name makes it easier when we visualize
+rownames(wb_scaled) <- wb_ghg_20$name 
+```
+
+
+### Find euclidean distances
+
+```{r}
+euc_distance <- dist(wb_scaled, method = 'euclidean')
+```
+
+### Perform hierarchical clustering with complete linkage
+
+```{r}
+hc_complete <- hclust(euc_distance, method = "complete")
+
+plot(hc_complete, cex = .6, hang = -1)
+```
+
+### Perform hierarchical clustering by single linkage
+
+```{r}
+hc_single<- hclust(euc_distance, method = "single")
+plot(hc_single, cex = .6, hang = -1)
+
+```
+
+### Make a tanglegram
+
+Compares two dendrograms- how different is clustering between hierarchical and single linkage
+- Poland and italy are in their own cluster in both methods
+- solid line - similar bw two groups
+- dashed line - significant difference
+
+
+```{r}
+dend_complete <- as.dendrogram(hc_complete)
+dend_single <- as.dendrogram(hc_single)
+
+tanglegram(dend_complete, dend_single)
+
+# entanglement- how messy are two dendrograms compared to each other
+entanglement(dend_complete, dend_single)
+
+# reorganizes clusters
+untangle(dend_complete, dend_single, method = "step1side") %>% 
+  entanglement() # smaller entanglement, changes how thiings are lined up to see differences between the two
+
+untangle(dend_complete, dend_single, method = "step1side") %>% 
+  tanglegram(common_subtrees_color_branches = TRUE)
+
+```
+
+
+### Let's make a dendrogram in ggplot!
+
+```{r}
+ggdendrogram(hc_complete, rotate = TRUE) +
+  theme_minimal() +
+  labs(x = "Country", y = "Euclidean Distance")
 ```
 
